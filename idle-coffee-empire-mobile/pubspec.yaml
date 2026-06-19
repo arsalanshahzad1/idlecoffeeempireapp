@@ -1,0 +1,35 @@
+name: idle_coffee_empire_mobile
+description: Idle Coffee Empire Phase 1 MVP
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flame: ^1.20.0
+  flame_svg: ^1.1.1
+  flutter_riverpod: ^2.5.1
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/animations/
+    - assets/audio/sfx/
+    - assets/audio/music/
+    - assets/customers/
+    - assets/chefs/
+    - assets/items/
+    - assets/ui/
+    - assets/decor/
