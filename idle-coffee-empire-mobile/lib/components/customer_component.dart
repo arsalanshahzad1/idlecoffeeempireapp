@@ -41,6 +41,7 @@ class CustomerComponent extends PositionComponent {
   Sprite? _sprite;
   CustomerVisualState _visualState = CustomerVisualState.moving;
   List<String> _orderIcons = const <String>[];
+  List<String> _orderStationIds = const <String>[];
   int _deliveredItems = 0;
   int _totalItems = 0;
   double _patienceRatio = 1;
@@ -86,11 +87,13 @@ class CustomerComponent extends PositionComponent {
 
   void setOrderBubble({
     required List<String> icons,
+    List<String> stationIds = const <String>[],
     required int deliveredItems,
     required int totalItems,
     required double patienceRatio,
   }) {
     _orderIcons = icons;
+    _orderStationIds = stationIds;
     _deliveredItems = deliveredItems;
     _totalItems = totalItems;
     _patienceRatio = patienceRatio.clamp(0.0, 1.0).toDouble();
@@ -309,24 +312,53 @@ class CustomerComponent extends PositionComponent {
     }
 
     if (singleItemOrder) {
-      final tp = TextPainter(
-        text: TextSpan(
-          text: '${_orderIcons.first} x$_totalItems',
-          style: const TextStyle(color: Color(0xFF4E342E), fontSize: 13, fontWeight: FontWeight.w900),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: bubbleW - 8);
-      tp.paint(canvas, Offset(rect.left + (rect.width - tp.width) / 2, rect.top + 3));
-    } else {
-      for (var i = 0; i < _orderIcons.length; i++) {
+      final stationId = _orderStationIds.isNotEmpty ? _orderStationIds.first : null;
+      final itemSvg = stationId != null ? SvgSprites.forItemStationId(stationId) : null;
+      if (itemSvg != null) {
+        const svgSize = 16.0;
+        final svgX = rect.center.dx - svgSize - 2;
+        canvas.save();
+        canvas.translate(svgX, rect.top + 4);
+        itemSvg.render(canvas, Vector2.all(svgSize));
+        canvas.restore();
         final tp = TextPainter(
           text: TextSpan(
-            text: _orderIcons[i],
-            style: const TextStyle(color: Color(0xFF4E342E), fontSize: 7, fontWeight: FontWeight.w900),
+            text: 'x$_totalItems',
+            style: const TextStyle(color: Color(0xFF4E342E), fontSize: 11, fontWeight: FontWeight.w900),
           ),
           textDirection: TextDirection.ltr,
-        )..layout(maxWidth: 17);
-        tp.paint(canvas, Offset(rect.left + 6 + i * 18, rect.top + 4));
+        )..layout();
+        tp.paint(canvas, Offset(rect.center.dx + 2, rect.top + 5));
+      } else {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '${_orderIcons.first} x$_totalItems',
+            style: const TextStyle(color: Color(0xFF4E342E), fontSize: 13, fontWeight: FontWeight.w900),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: bubbleW - 8);
+        tp.paint(canvas, Offset(rect.left + (rect.width - tp.width) / 2, rect.top + 3));
+      }
+    } else {
+      for (var i = 0; i < _orderIcons.length; i++) {
+        final stationId = _orderStationIds.length > i ? _orderStationIds[i] : null;
+        final itemSvg = stationId != null ? SvgSprites.forItemStationId(stationId) : null;
+        if (itemSvg != null) {
+          const svgSize = 14.0;
+          canvas.save();
+          canvas.translate(rect.left + 6 + i * 18, rect.top + 4);
+          itemSvg.render(canvas, Vector2.all(svgSize));
+          canvas.restore();
+        } else {
+          final tp = TextPainter(
+            text: TextSpan(
+              text: _orderIcons[i],
+              style: const TextStyle(color: Color(0xFF4E342E), fontSize: 7, fontWeight: FontWeight.w900),
+            ),
+            textDirection: TextDirection.ltr,
+          )..layout(maxWidth: 17);
+          tp.paint(canvas, Offset(rect.left + 6 + i * 18, rect.top + 4));
+        }
       }
     }
 

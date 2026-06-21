@@ -1,4 +1,5 @@
 import 'package:flame_svg/flame_svg.dart';
+import 'package:flutter/foundation.dart';
 
 /// Loads every SVG asset once at game startup.
 ///
@@ -48,49 +49,51 @@ class SvgSprites {
   // ── Load ──────────────────────────────────────────────────────────────────
 
   static Future<void> loadAll() async {
-    // Customers (assets/customers/)
-    customerCasual   = await _load('assets/customers/customer_casual.svg');
-    customerBusiness = await _load('assets/customers/customer_business.svg');
-    customerHipster  = await _load('assets/customers/customer_hipster.svg');
-    customerKid      = await _load('assets/customers/customer_kid.svg');
-    customerElder    = await _load('assets/customers/customer_elder.svg');
+    // Customers
+    customerCasual   = await _load('customers/customer_casual.svg');
+    customerBusiness = await _load('customers/customer_business.svg');
+    customerHipster  = await _load('customers/customer_hipster.svg');
+    customerKid      = await _load('customers/customer_kid.svg');
+    customerElder    = await _load('customers/customer_elder.svg');
 
-    // Chefs (assets/chefs/)
-    chefHeadBarista  = await _load('assets/chefs/chef_head_barista.svg');
-    chefEspresso     = await _load('assets/chefs/chef_espresso.svg');
-    chefPastry       = await _load('assets/chefs/chef_pastry.svg');
-    chefTrainee      = await _load('assets/chefs/chef_trainee.svg');
-    chefManager      = await _load('assets/chefs/chef_manager.svg');
+    // Chefs
+    chefHeadBarista  = await _load('chefs/chef_head_barista.svg');
+    chefEspresso     = await _load('chefs/chef_espresso.svg');
+    chefPastry       = await _load('chefs/chef_pastry.svg');
+    chefTrainee      = await _load('chefs/chef_trainee.svg');
+    chefManager      = await _load('chefs/chef_manager.svg');
 
-    // Emotions (assets/ui/)
-    emotionHappy     = await _load('assets/ui/emotion_happy.svg');
-    emotionImpatient = await _load('assets/ui/emotion_impatient.svg');
-    emotionAngry     = await _load('assets/ui/emotion_angry.svg');
+    // Emotions
+    emotionHappy     = await _load('ui/emotion_happy.svg');
+    emotionImpatient = await _load('ui/emotion_impatient.svg');
+    emotionAngry     = await _load('ui/emotion_angry.svg');
 
-    // Items (assets/items/)
-    itemEspresso     = await _load('assets/items/espresso.svg');
-    itemLatte        = await _load('assets/items/latte.svg');
-    itemColdBrew     = await _load('assets/items/cold_brew.svg');
+    // Items
+    itemEspresso     = await _load('items/espresso.svg');
+    itemLatte        = await _load('items/latte.svg');
+    itemColdBrew     = await _load('items/cold_brew.svg');
 
-    // UI (assets/ui/)
-    coffeeCoin       = await _load('assets/ui/coffee_coin.svg');
-    boostSpeed       = await _load('assets/ui/boost_speed.svg');
-    boostCps         = await _load('assets/ui/boost_cps.svg');
-    boostPrestige    = await _load('assets/ui/boost_prestige.svg');
+    // UI / HUD
+    coffeeCoin       = await _load('ui/coffee_coin.svg');
+    boostSpeed       = await _load('ui/boost_speed.svg');
+    boostCps         = await _load('ui/boost_cps.svg');
+    boostPrestige    = await _load('ui/boost_prestige.svg');
 
-    // Decor (assets/decor/)
-    prestigeTrophy   = await _load('assets/decor/prestige_trophy.svg');
+    // Decor
+    prestigeTrophy   = await _load('decor/prestige_trophy.svg');
 
-    // Stations (assets/ui/)
-    stationEspresso  = await _load('assets/ui/station_espresso.svg');
-    stationGrinder   = await _load('assets/ui/station_grinder.svg');
-    stationPastry    = await _load('assets/ui/station_pastry.svg');
+    // Stations
+    stationEspresso  = await _load('ui/station_espresso.svg');
+    stationGrinder   = await _load('ui/station_grinder.svg');
+    stationPastry    = await _load('ui/station_pastry.svg');
   }
 
   static Future<Svg?> _load(String path) async {
     try {
       return await Svg.load(path);
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('SvgSprites._load FAILED: $path — $e');
+      debugPrint('$stack');
       return null;
     }
   }
@@ -142,6 +145,38 @@ class SvgSprites {
       'coffee_grinder'   => stationGrinder,
       'pastry_display'   => stationPastry,
       _                  => null,
+    };
+  }
+
+  /// Returns the best item SVG to represent an order from a given station,
+  /// used in customer order bubbles.
+  static Svg? forItemStationId(String stationId) {
+    return switch (stationId) {
+      'espresso_machine' => itemEspresso,
+      'coffee_grinder'   => itemLatte,
+      'pastry_display'   => itemColdBrew,
+      _                  => null,
+    };
+  }
+
+  /// Returns the SVG icon for a boost ID.
+  static Svg? forBoostId(String boostId) {
+    return switch (boostId) {
+      'income_x2'      => boostCps,
+      'production_x2'  => boostSpeed,
+      'customer_rush'  => boostPrestige,
+      _                => null,
+    };
+  }
+
+  /// Returns the asset path (relative to assets/) for a boost icon — for use
+  /// with [SvgCanvasWidget] which loads from path rather than a pre-loaded Svg.
+  static String? pathForBoostId(String boostId) {
+    return switch (boostId) {
+      'income_x2'      => 'ui/boost_cps.svg',
+      'production_x2'  => 'ui/boost_speed.svg',
+      'customer_rush'  => 'ui/boost_prestige.svg',
+      _                => null,
     };
   }
 }

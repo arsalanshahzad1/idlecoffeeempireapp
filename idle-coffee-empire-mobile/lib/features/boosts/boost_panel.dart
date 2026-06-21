@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/monetization_config.dart';
+import '../../sprites/svg_sprite.dart';
 import '../../utils/number_formatter.dart';
+import '../../visuals/svg_canvas_widget.dart';
 import '../game/game_controller.dart';
 import '../game/widgets/game_dialogs.dart';
 
@@ -33,7 +35,13 @@ class BoostPanel extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(cfg.title, style: Theme.of(context).textTheme.titleSmall),
+                        Row(
+                          children: [
+                            SvgCanvasWidget(SvgSprites.pathForBoostId(cfg.id), size: 28),
+                            const SizedBox(width: 8),
+                            Text(cfg.title, style: Theme.of(context).textTheme.titleSmall),
+                          ],
+                        ),
                         const SizedBox(height: 4),
                         Text('Duration: ${cfg.durationSeconds ~/ 60}m'),
                         if (cfg.incomeMultiplier > 1) Text('Income x${cfg.incomeMultiplier.toStringAsFixed(1)}'),

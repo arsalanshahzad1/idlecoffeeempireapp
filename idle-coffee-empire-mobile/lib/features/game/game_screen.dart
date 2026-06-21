@@ -6,10 +6,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flame/game.dart';
 
+import 'package:flame_svg/flame_svg.dart';
+
 import '../../data/station_configs.dart';
 import '../../game/idle_coffee_game.dart';
 import '../../managers/economy_manager.dart';
 import '../../utils/number_formatter.dart';
+import '../../visuals/svg_canvas_widget.dart';
 import '../../visuals/visual_config.dart';
 import 'game_controller.dart';
 import 'game_state.dart';
@@ -47,6 +50,12 @@ class _GameScreenState extends ConsumerState<GameScreen> with SingleTickerProvid
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
+    // Step 4 diagnostic: confirm flame_svg can load one SVG at all.
+    Svg.load('ui/coffee_coin.svg').then((svg) {
+      debugPrint('SVG LOADED OK: $svg');
+    }).catchError((Object e) {
+      debugPrint('SVG FAILED: $e');
+    });
   }
 
   @override
@@ -167,16 +176,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with SingleTickerProvid
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFB300),
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Color(0x44000000), blurRadius: 6)],
-                    ),
-                    child: const Icon(Icons.monetization_on, color: Colors.white, size: 19),
-                  ),
+                  const SvgCanvasWidget('ui/coffee_coin.svg', size: 34),
                   const SizedBox(width: 9),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

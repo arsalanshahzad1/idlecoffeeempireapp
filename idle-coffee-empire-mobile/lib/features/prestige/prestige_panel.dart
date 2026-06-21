@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../visuals/svg_canvas_widget.dart';
 import '../game/game_controller.dart';
 import '../../utils/number_formatter.dart';
 
@@ -207,7 +208,7 @@ class _PrestigeCelebrationOverlayState extends State<_PrestigeCelebrationOverlay
                     scale: Tween<double>(begin: 1.0, end: 1.18).animate(
                       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
                     ),
-                    child: const Icon(Icons.emoji_events, size: 96, color: Color(0xFFFFD700)),
+                    child: const SvgCanvasWidget('decor/prestige_trophy.svg', size: 96),
                   ),
                   const SizedBox(height: 28),
                   Text(

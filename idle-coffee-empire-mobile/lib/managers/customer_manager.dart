@@ -157,6 +157,7 @@ class CustomerManager {
       }
       customer.setOrderBubble(
         icons: order.requestedItems.map((item) => item.icon).toList(growable: false),
+        stationIds: order.requestedItems.map((item) => item.stationId).toList(growable: false),
         deliveredItems: order.deliveredCount,
         totalItems: order.totalCount,
         patienceRatio: order.maxPatienceSeconds <= 0
