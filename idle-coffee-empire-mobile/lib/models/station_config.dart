@@ -8,6 +8,7 @@ class StationConfig {
     required this.unlockCost,
     required this.gridX,
     required this.gridY,
+    required this.secondChefUnlockLevel,
     this.assetPath,
   });
 
@@ -19,5 +20,7 @@ class StationConfig {
   final double unlockCost;
   final double gridX;
   final double gridY;
+  /// Station level at which the second parallel chef slot activates.
+  final int secondChefUnlockLevel;
   final String? assetPath;
 }

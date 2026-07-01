@@ -372,12 +372,17 @@ class GameController extends StateNotifier<GameState> {
     return state.workersHired.contains(workerId);
   }
 
+  /// Returns 1 or 2 based purely on the station's own level vs its threshold.
+  /// Worker efficiency continues to affect cooking speed but NOT slot count.
+  int activeChefSlots(StationConfig config, StationState stationState) {
+    return stationState.level >= config.secondChefUnlockLevel ? 2 : 1;
+  }
+
   int cookCountForStation(String stationId) {
-    final worker = _workerManager.forStation(stationId);
-    if (worker == null || !isWorkerHired(worker.id)) {
-      return 1;
-    }
-    return (workerLevel(worker.id) + 1).clamp(1, 3).toInt();
+    final station = state.stations[stationId];
+    if (station == null) return 1;
+    final config = configFor(stationId);
+    return activeChefSlots(config, station);
   }
 
   double workerUpgradeCost(String workerId) {
@@ -1757,7 +1762,7 @@ class GameController extends StateNotifier<GameState> {
             (1 + (workerBoost * permanentWorkerMultiplier) *
                 EconomyBalanceConfig.workerAutomationRateMultiplier) *
             chefStats.speedMultiplier;
-        final activeCookCount = cookCountForStation(stationId).clamp(1, 3).toInt();
+        final activeCookCount = cookCountForStation(stationId).clamp(1, 2).toInt();
         final updatedQueue = List<StationTaskState>.from(taskQueue);
         var completedAny = false;
         var leadingProgress = 0.0;

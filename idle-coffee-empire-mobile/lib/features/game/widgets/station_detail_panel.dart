@@ -32,7 +32,10 @@ class StationDetailPanel extends ConsumerWidget {
     final workerLevel = worker == null ? 1 : controller.workerLevel(worker.id);
     final workerUpgradeCost = worker == null ? 0.0 : controller.workerUpgradeCost(worker.id);
     final queueCount = state.stationQueues[stationId]?.length ?? 0;
-    final cookCount = controller.cookCountForStation(stationId);
+    final activeSlots = controller.cookCountForStation(stationId);
+    final isNearingSecondChef = station.isUnlocked &&
+        activeSlots < 2 &&
+        (config.secondChefUnlockLevel - station.level) <= 5;
 
     final canUnlock = !station.isUnlocked && state.coins >= config.unlockCost;
     final canUpgrade = station.isUnlocked && station.level < 100 && state.coins >= upgradeCost;
@@ -74,7 +77,7 @@ class StationDetailPanel extends ConsumerWidget {
                 runSpacing: 4,
                 children: [
                   _statChip(Icons.trending_up, 'Lv ${station.level}/100'),
-                  _statChip(Icons.group, 'Cooks $cookCount/3'),
+                  _statChip(Icons.group, 'Chefs $activeSlots/2'),
                   _statChip(Icons.receipt, 'Queue $queueCount'),
                   _statChip(Icons.timer, '${config.productionTimeSeconds.toStringAsFixed(1)}s each'),
                 ],
@@ -88,6 +91,17 @@ class StationDetailPanel extends ConsumerWidget {
                     : station.blockedReason!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
               ),
+              if (isNearingSecondChef)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    'Reach level ${config.secondChefUnlockLevel} to add a second chef',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF8B5E3C),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 7),
               if (!station.isUnlocked)
                 FilledButton(

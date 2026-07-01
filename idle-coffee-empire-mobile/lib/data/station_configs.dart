@@ -11,6 +11,8 @@ const List<StationConfig> stationConfigs = <StationConfig>[
     unlockCost: 0,
     gridX: 0,
     gridY: 0,
+    // Starter station — 2nd chef unlocks at a modest early milestone.
+    secondChefUnlockLevel: 10,
   ),
   StationConfig(
     id: 'coffee_grinder',
@@ -22,6 +24,8 @@ const List<StationConfig> stationConfigs = <StationConfig>[
     unlockCost: 100,
     gridX: 0,
     gridY: 1,
+    // Mid-tier station — 2nd chef requires meaningful investment.
+    secondChefUnlockLevel: 15,
   ),
   StationConfig(
     id: 'pastry_display',
@@ -33,5 +37,7 @@ const List<StationConfig> stationConfigs = <StationConfig>[
     unlockCost: 600,
     gridX: 0,
     gridY: 2,
+    // Premium station — highest upgrade cost, slowest cycle, latest 2nd chef threshold.
+    secondChefUnlockLevel: 20,
   ),
 ];
