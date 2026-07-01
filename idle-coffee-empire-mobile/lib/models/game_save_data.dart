@@ -1,7 +1,10 @@
 import 'boost_state.dart';
 import 'cafe_order_state.dart';
+import 'chef_state.dart';
+import 'shop_tier_state.dart';
 import 'daily_reward_state.dart';
 import 'game_resources.dart';
+import 'gear_item.dart';
 import 'limited_event_state.dart';
 import 'login_streak_state.dart';
 import 'notification_preferences.dart';
@@ -10,7 +13,7 @@ import 'station_state.dart';
 import 'task_state.dart';
 
 class GameSaveData {
-  static const int currentSaveVersion = 8;
+  static const int currentSaveVersion = 12;
 
   const GameSaveData({
     required this.saveVersion,
@@ -65,6 +68,10 @@ class GameSaveData {
     this.nextOrderSerial = 1,
     this.notificationPreferences = NotificationPreferences.defaults,
     this.serviceIntegration = const ServiceIntegrationState(),
+    this.chefs = const <String, ChefState>{},
+    this.ownedGear = const <GearItem>[],
+    this.shopTier = ShopTierState.initial,
+    this.cityLevel = 1,
   });
 
   final double coins;
@@ -119,6 +126,10 @@ class GameSaveData {
   final int nextOrderSerial;
   final NotificationPreferences notificationPreferences;
   final ServiceIntegrationState serviceIntegration;
+  final Map<String, ChefState> chefs;
+  final List<GearItem> ownedGear;
+  final ShopTierState shopTier;
+  final int cityLevel;
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
@@ -176,6 +187,10 @@ class GameSaveData {
       'nextOrderSerial': nextOrderSerial,
       'notificationPreferences': notificationPreferences.toMap(),
       'serviceIntegration': serviceIntegration.toMap(),
+      'chefs': chefs.map((key, value) => MapEntry(key, value.toMap())),
+      'ownedGear': ownedGear.map((item) => item.toMap()).toList(growable: false),
+      'shopTier': shopTier.toMap(),
+      'cityLevel': cityLevel,
     };
   }
 
@@ -270,6 +285,30 @@ class GameSaveData {
       }
     }
 
+    Map<String, ChefState> asChefMap(dynamic raw) {
+      final result = <String, ChefState>{};
+      if (raw is Map) {
+        for (final entry in raw.entries) {
+          if (entry.key is String && entry.value is Map) {
+            result[entry.key as String] = ChefState.fromMap(entry.value as Map<dynamic, dynamic>);
+          }
+        }
+      }
+      return result;
+    }
+
+    List<GearItem> asGearList(dynamic raw) {
+      final result = <GearItem>[];
+      if (raw is List) {
+        for (final value in raw) {
+          if (value is Map) {
+            result.add(GearItem.fromMap(value));
+          }
+        }
+      }
+      return result;
+    }
+
     final rawResources = map['resources'];
     final resources = rawResources is Map<dynamic, dynamic>
         ? GameResources.fromMap(rawResources)
@@ -337,6 +376,12 @@ class GameSaveData {
       nextOrderSerial: (map['nextOrderSerial'] as num?)?.toInt() ?? 1,
       notificationPreferences: rawNotification is Map ? NotificationPreferences.fromMap(rawNotification) : NotificationPreferences.defaults,
       serviceIntegration: rawIntegration is Map ? ServiceIntegrationState.fromMap(rawIntegration) : const ServiceIntegrationState(),
+      chefs: asChefMap(map['chefs']),
+      ownedGear: asGearList(map['ownedGear']),
+      shopTier: map['shopTier'] is Map
+          ? ShopTierState.fromMap(map['shopTier'] as Map<dynamic, dynamic>)
+          : ShopTierState.initial,
+      cityLevel: (map['cityLevel'] as num?)?.toInt() ?? 1,
     );
   }
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../data/chef_gear_catalog.dart';
 import '../../../data/limited_event_configs.dart';
+import '../../../data/shop_tier_configs.dart';
 import '../game_controller.dart';
 import '../../../utils/number_formatter.dart';
 
@@ -24,6 +26,22 @@ class DebugPanel extends ConsumerWidget {
               Text('Cups: ${NumberFormatter.compact(state.coffeeCups)}'),
               Text('Customers served: ${state.lifetimeCustomersServed}'),
               Text('Save version: ${state.saveVersion}'),
+              () {
+                final tier = state.shopTier.currentTier;
+                final cfg = shopTierConfigs.firstWhere((c) => c.tier == tier);
+                final next = tier < 6
+                    ? shopTierConfigs.firstWhere((c) => c.tier == tier + 1)
+                    : null;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Shop tier: $tier — ${cfg.name} (${cfg.globalEarningsMultiplier}x, max ${cfg.maxActiveStations} stations)'),
+                    Text(next != null
+                        ? 'Next tier cost: ${NumberFormatter.compact(next.upgradeCost)} coins'
+                        : 'Shop tier: MAX'),
+                  ],
+                );
+              }(),
               Text('Active customers: ${state.waitingCustomers}'),
               Text('Coins/sec: ${NumberFormatter.compact(controller.totalCoinsPerSecond)}'),
               Text('Prestige points: ${state.prestigePoints}'),
@@ -105,6 +123,32 @@ class DebugPanel extends ConsumerWidget {
                             : 'Enable ${event.title}',
                       ),
                     ),
+                  FilledButton.tonal(
+                    onPressed: () => controller.debugEquipGear(
+                      hatId: chefHats.first.id,
+                      shirtId: chefShirts.first.id,
+                      pantsId: chefPants.first.id,
+                      shoesId: chefShoes.first.id,
+                    ),
+                    child: const Text('Equip Full Gear Set'),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: () => controller.debugEquipGear(
+                      clearHat: true,
+                      clearShirt: true,
+                      clearPants: true,
+                      clearShoes: true,
+                    ),
+                    child: const Text('Unequip All Gear'),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: state.shopTier.currentTier < 6
+                        ? () => controller.upgradeShopTier()
+                        : null,
+                    child: Text(state.shopTier.currentTier < 6
+                        ? 'Upgrade Shop Tier (→ Tier ${state.shopTier.currentTier + 1})'
+                        : 'Shop Tier MAX'),
+                  ),
                 ],
               ),
             ],

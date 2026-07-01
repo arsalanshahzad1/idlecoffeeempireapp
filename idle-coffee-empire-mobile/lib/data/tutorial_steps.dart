@@ -49,6 +49,6 @@ const List<TutorialStep> tutorialSteps = <TutorialStep>[
   TutorialStep(
     id: 'prestige_intro',
     title: 'Prestige Later',
-    message: 'Prestige resets your run for stronger long-term bonuses once progress slows down.',
+    message: 'Prestige moves you to a new city — shop resets to a roadside stall, but coins, stats, and prestige points carry over, and your chef earns new gear.',
   ),
 ];

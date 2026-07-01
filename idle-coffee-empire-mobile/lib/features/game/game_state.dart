@@ -1,6 +1,8 @@
 import '../../models/game_resources.dart';
 import '../../models/cafe_order_state.dart';
 import '../../models/boost_state.dart';
+import '../../models/chef_state.dart';
+import '../../models/gear_item.dart';
 import '../../models/settings_state.dart';
 import '../../models/station_state.dart';
 import '../../models/tutorial_state.dart';
@@ -10,6 +12,7 @@ import '../../models/task_state.dart';
 import '../../models/limited_event_state.dart';
 import '../../models/notification_preferences.dart';
 import '../../models/service_integration_state.dart';
+import '../../models/shop_tier_state.dart';
 
 class GameState {
   const GameState({
@@ -76,6 +79,10 @@ class GameState {
     this.nextOrderSerial = 1,
     this.notificationPreferences = NotificationPreferences.defaults,
     this.serviceIntegration = const ServiceIntegrationState(),
+    this.chefs = const <String, ChefState>{},
+    this.ownedGear = const <GearItem>[],
+    this.shopTier = ShopTierState.initial,
+    this.cityLevel = 1,
   });
 
   final double coins;
@@ -141,6 +148,10 @@ class GameState {
   final int nextOrderSerial;
   final NotificationPreferences notificationPreferences;
   final ServiceIntegrationState serviceIntegration;
+  final Map<String, ChefState> chefs;
+  final List<GearItem> ownedGear;
+  final ShopTierState shopTier;
+  final int cityLevel;
 
   double get coffeeCups => resources.coffeeCups;
   int get servedCustomers => resources.servedCustomers;
@@ -211,6 +222,10 @@ class GameState {
     int? nextOrderSerial,
     NotificationPreferences? notificationPreferences,
     ServiceIntegrationState? serviceIntegration,
+    Map<String, ChefState>? chefs,
+    List<GearItem>? ownedGear,
+    ShopTierState? shopTier,
+    int? cityLevel,
   }) {
     return GameState(
       coins: coins ?? this.coins,
@@ -276,6 +291,10 @@ class GameState {
       nextOrderSerial: nextOrderSerial ?? this.nextOrderSerial,
       notificationPreferences: notificationPreferences ?? this.notificationPreferences,
       serviceIntegration: serviceIntegration ?? this.serviceIntegration,
+      chefs: chefs ?? this.chefs,
+      ownedGear: ownedGear ?? this.ownedGear,
+      shopTier: shopTier ?? this.shopTier,
+      cityLevel: cityLevel ?? this.cityLevel,
     );
   }
 }

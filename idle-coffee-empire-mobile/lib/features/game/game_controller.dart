@@ -14,6 +14,9 @@ import '../../data/event_shop_configs.dart';
 import '../../data/task_configs.dart';
 import '../../data/theme_configs.dart';
 import '../../data/station_configs.dart';
+import '../../data/shop_tier_configs.dart';
+import '../../models/shop_tier_config.dart';
+import '../../models/shop_tier_state.dart';
 import '../../data/tutorial_steps.dart';
 import '../../managers/achievement_manager.dart';
 import '../../managers/customer_type_manager.dart';
@@ -27,6 +30,10 @@ import '../../managers/milestone_manager.dart';
 import '../../managers/permanent_upgrade_manager.dart';
 import '../../managers/prestige_achievement_manager.dart';
 import '../../managers/station_bonus_manager.dart';
+import '../../managers/chef_stat_manager.dart';
+import '../../managers/gear_roll_manager.dart';
+import '../../models/chef_state.dart';
+import '../../models/gear_item.dart';
 import '../../managers/worker_manager.dart';
 import '../../managers/task_manager.dart';
 import '../../models/decoration_config.dart';
@@ -84,6 +91,7 @@ final gameControllerProvider =
         const StationManager(),
         const OfflineIncomeSystem(),
         const WorkerManager(),
+        const ChefStatManager(),
         const StationBonusManager(),
         const MilestoneManager(),
         const ExpansionManager(),
@@ -125,6 +133,7 @@ class GameController extends StateNotifier<GameState> {
     this._stationManager,
     this._offlineIncomeSystem,
     this._workerManager,
+    this._chefStatManager,
     this._stationBonusManager,
     this._milestoneManager,
     this._expansionManager,
@@ -161,6 +170,7 @@ class GameController extends StateNotifier<GameState> {
   final StationManager _stationManager;
   final OfflineIncomeSystem _offlineIncomeSystem;
   final WorkerManager _workerManager;
+  final ChefStatManager _chefStatManager;
   final StationBonusManager _stationBonusManager;
   final MilestoneManager _milestoneManager;
   final ExpansionManager _expansionManager;
@@ -294,6 +304,22 @@ class GameController extends StateNotifier<GameState> {
       total += profit / seconds;
     }
     return total;
+  }
+
+  ShopTierConfig get _currentShopTierConfig {
+    for (final config in shopTierConfigs) {
+      if (config.tier == state.shopTier.currentTier) return config;
+    }
+    return shopTierConfigs.first;
+  }
+
+  ShopTierConfig? get nextShopTierConfig {
+    final next = state.shopTier.currentTier + 1;
+    if (next > 6) return null;
+    for (final config in shopTierConfigs) {
+      if (config.tier == next) return config;
+    }
+    return null;
   }
 
   StationConfig configFor(String stationId) {
@@ -469,6 +495,10 @@ class GameController extends StateNotifier<GameState> {
         nextOrderSerial: loadedData.nextOrderSerial,
         notificationPreferences: loadedData.notificationPreferences,
         serviceIntegration: loadedData.serviceIntegration,
+        chefs: loadedData.chefs,
+        ownedGear: loadedData.ownedGear,
+        shopTier: loadedData.shopTier,
+        cityLevel: loadedData.cityLevel,
       );
       final offlineAward = _calculateOfflineAward(loadedState, now);
       var hydratedState = loadedState.copyWith(
@@ -573,6 +603,62 @@ class GameController extends StateNotifier<GameState> {
     }
     final next = (state.prestigePoints + amount).clamp(0, 999999999).toInt();
     _setStateSafely(state.copyWith(prestigePoints: next));
+    await _persist();
+  }
+
+  Future<void> equipGear(String chefId, GearSlot slot, String gearId) async {
+    final currentChef = state.chefs[chefId] ?? ChefState.starter;
+    final updatedGear = switch (slot) {
+      GearSlot.hat   => currentChef.equippedGear.copyWith(hatId: gearId),
+      GearSlot.shirt => currentChef.equippedGear.copyWith(shirtId: gearId),
+      GearSlot.pants => currentChef.equippedGear.copyWith(pantsId: gearId),
+      GearSlot.shoes => currentChef.equippedGear.copyWith(shoesId: gearId),
+    };
+    final updatedChef = currentChef.copyWith(equippedGear: updatedGear);
+    _setStateSafely(state.copyWith(chefs: {...state.chefs, chefId: updatedChef}));
+    await _persist();
+  }
+
+  Future<void> unequipGear(String chefId, GearSlot slot) async {
+    final currentChef = state.chefs[chefId] ?? ChefState.starter;
+    final updatedGear = switch (slot) {
+      GearSlot.hat   => currentChef.equippedGear.copyWith(clearHat: true),
+      GearSlot.shirt => currentChef.equippedGear.copyWith(clearShirt: true),
+      GearSlot.pants => currentChef.equippedGear.copyWith(clearPants: true),
+      GearSlot.shoes => currentChef.equippedGear.copyWith(clearShoes: true),
+    };
+    final updatedChef = currentChef.copyWith(equippedGear: updatedGear);
+    _setStateSafely(state.copyWith(chefs: {...state.chefs, chefId: updatedChef}));
+    await _persist();
+  }
+
+  // Equip gear on the primary chef for testing multipliers before the real
+  // equip UI exists. Pass null for a slot to clear it.
+  Future<void> debugEquipGear({
+    String? hatId,
+    String? shirtId,
+    String? pantsId,
+    String? shoesId,
+    bool clearHat = false,
+    bool clearShirt = false,
+    bool clearPants = false,
+    bool clearShoes = false,
+  }) async {
+    final currentChef = state.chefs['chef_1'] ?? ChefState.starter;
+    final updatedGear = currentChef.equippedGear.copyWith(
+      hatId: hatId,
+      clearHat: clearHat,
+      shirtId: shirtId,
+      clearShirt: clearShirt,
+      pantsId: pantsId,
+      clearPants: clearPants,
+      shoesId: shoesId,
+      clearShoes: clearShoes,
+    );
+    final updatedChef = currentChef.copyWith(equippedGear: updatedGear);
+    _setStateSafely(state.copyWith(
+      chefs: {...state.chefs, 'chef_1': updatedChef},
+    ));
     await _persist();
   }
 
@@ -1182,6 +1268,10 @@ class GameController extends StateNotifier<GameState> {
     if (state.coins < config.unlockCost) {
       return false;
     }
+    final unlockedCount = state.stations.values.where((s) => s.isUnlocked).length;
+    if (unlockedCount >= _currentShopTierConfig.maxActiveStations) {
+      return false;
+    }
     final updated = Map<String, StationState>.from(state.stations);
     updated[stationId] = station.copyWith(isUnlocked: true, autoEnabled: true);
     var nextState = state.copyWith(
@@ -1271,6 +1361,30 @@ class GameController extends StateNotifier<GameState> {
     _persist();
     return true;
   }
+
+  Future<void> upgradeShopTier() async {
+    final currentTier = state.shopTier.currentTier;
+    if (currentTier >= 6) return;
+    final nextConfig = nextShopTierConfig;
+    if (nextConfig == null || state.coins < nextConfig.upgradeCost) return;
+    final resetStations = _stationManager.createDefaultStates();
+    var nextState = state.copyWith(
+      coins: 0,
+      shopTier: ShopTierState(currentTier: currentTier + 1),
+      stations: resetStations,
+    );
+    nextState = _clearActiveRunData(nextState);
+    _setStateSafely(nextState);
+    await _persist();
+  }
+
+  GameState _clearActiveRunData(GameState s) => s.copyWith(
+    cafeOrders: const <CafeOrderState>[],
+    stationQueues: const <String, List<StationTaskState>>{},
+    cafeTables: _defaultCafeTables(),
+    waitingCustomers: 0,
+    waitingCustomerTypes: const <String>[],
+  );
 
   bool upgradeWorker(String workerId) {
     if (!isWorkerHired(workerId)) {
@@ -1385,9 +1499,12 @@ class GameController extends StateNotifier<GameState> {
     }
 
     final now = DateTime.now().toUtc();
+    final droppedGear = _rollPrestigeGear();
     final runReset = _buildPrestigeRunResetState(
       nowUtc: now,
       awardedPrestigePoints: award,
+      cityLevel: state.cityLevel + 1,
+      ownedGear: [...state.ownedGear, droppedGear],
     );
     final runResetWithTasks = _addTaskMetric(runReset, 'prestige_count', 1);
     _setStateSafely(_withUiEvent(runResetWithTasks, event: 'prestige_reset'));
@@ -1397,6 +1514,24 @@ class GameController extends StateNotifier<GameState> {
     unawaited(_completeTutorialStep('prestige_intro'));
     await _persist();
     return true;
+  }
+
+  GearItem _rollPrestigeGear() {
+    // Weighted rarity roll: common 50%, rare 30%, epic 15%, legendary 5%.
+    final rarityRoll = _random.nextDouble();
+    final GearRarity rarity;
+    if (rarityRoll < 0.50) {
+      rarity = GearRarity.common;
+    } else if (rarityRoll < 0.80) {
+      rarity = GearRarity.rare;
+    } else if (rarityRoll < 0.95) {
+      rarity = GearRarity.epic;
+    } else {
+      rarity = GearRarity.legendary;
+    }
+    const slots = GearSlot.values;
+    final slot = slots[_random.nextInt(slots.length)];
+    return rollRandomGearItem(slot: slot, rarity: rarity, random: _random);
   }
 
   bool claimAchievement(String achievementId) {
@@ -1600,6 +1735,10 @@ class GameController extends StateNotifier<GameState> {
     satisfiedOrders = orderTick.satisfiedOrders;
     failedOrders = orderTick.failedOrders;
 
+    // Compute chef stats once per tick (one chef for now; Phase 2 adds per-station mapping).
+    final primaryChef = state.chefs.values.isEmpty ? ChefState.starter : state.chefs.values.first;
+    final chefStats = _chefStatManager.computeStats(primaryChef);
+
     final updatedStations = <String, StationState>{};
     for (final entry in state.stations.entries) {
       final stationId = entry.key;
@@ -1615,8 +1754,9 @@ class GameController extends StateNotifier<GameState> {
           state.purchasedPermanentUpgradeIds,
         );
         final rateBoost =
-            1 + (workerBoost * permanentWorkerMultiplier) *
-                EconomyBalanceConfig.workerAutomationRateMultiplier;
+            (1 + (workerBoost * permanentWorkerMultiplier) *
+                EconomyBalanceConfig.workerAutomationRateMultiplier) *
+            chefStats.speedMultiplier;
         final activeCookCount = cookCountForStation(stationId).clamp(1, 3).toInt();
         final updatedQueue = List<StationTaskState>.from(taskQueue);
         var completedAny = false;
@@ -1655,6 +1795,7 @@ class GameController extends StateNotifier<GameState> {
             tipsReceived: tipsReceived,
             satisfiedOrders: satisfiedOrders,
             failedOrders: failedOrders,
+            tipMultiplier: chefStats.tipMultiplier,
           );
           cafeOrders = completed.orders;
           stationQueues = completed.stationQueues;
@@ -1755,6 +1896,8 @@ class GameController extends StateNotifier<GameState> {
     final runReset = _buildPrestigeRunResetState(
       nowUtc: now,
       awardedPrestigePoints: 0,
+      cityLevel: state.cityLevel,
+      ownedGear: state.ownedGear,
     ).copyWith(
       prestigePoints: state.prestigePoints,
       lifetimePrestigePoints: state.lifetimePrestigePoints,
@@ -1851,7 +1994,13 @@ class GameController extends StateNotifier<GameState> {
     }
     final orderId = 'order_$nextSerial';
     final customerId = 'customer_$nextSerial';
-    final tableIndex = tables.indexWhere((table) => table.isUnlocked && !table.isOccupied);
+    // Treat orphaned tables (occupied but no active order references tableId) as available seats
+    // so a missed _freeTable call doesn't permanently lock seating.
+    final tableIndex = tables.indexWhere(
+      (table) =>
+          table.isUnlocked &&
+          (!table.isOccupied || !orders.any((order) => order.tableId == table.tableId)),
+    );
     final tableId = tableIndex >= 0 ? tables[tableIndex].tableId : null;
     if (tableIndex >= 0) {
       tables[tableIndex] = tables[tableIndex].copyWith(customerId: customerId);
@@ -1956,8 +2105,10 @@ class GameController extends StateNotifier<GameState> {
       );
       if (patience <= 0 && !order.isComplete) {
         failedOrders += 1;
-        stationQueues = _removeOrderTasks(stationQueues, order.orderId);
-        tables = _freeTable(tables, order.customerId);
+        // Phase set to failed before disposal; useful for logging/debugging/future observers.
+        final failedOrder = aged.copyWith(phase: CafeOrderPhase.failed);
+        stationQueues = _removeOrderTasks(stationQueues, failedOrder.orderId);
+        tables = _freeTable(tables, failedOrder.customerId);
         continue;
       }
       kept.add(aged);
@@ -1992,6 +2143,7 @@ class GameController extends StateNotifier<GameState> {
     required int tipsReceived,
     required int satisfiedOrders,
     required int failedOrders,
+    double tipMultiplier = 1.0,
   }) {
     final queue = List<StationTaskState>.from(stationQueues[stationId] ?? const <StationTaskState>[]);
     if (queue.isEmpty) {
@@ -2036,14 +2188,18 @@ class GameController extends StateNotifier<GameState> {
     ];
     var updatedOrder = order.copyWith(requestedItems: deliveredItems);
     if (updatedOrder.isComplete) {
+      // Phase set to completed before disposal; useful for logging/debugging/future observers.
+      updatedOrder = updatedOrder.copyWith(phase: CafeOrderPhase.completed);
       final speedRatio = (updatedOrder.patienceSeconds / updatedOrder.maxPatienceSeconds)
           .clamp(0.0, 1.0)
           .toDouble();
       final effectiveTipChance = (updatedOrder.tipChance * (0.45 + speedRatio * 0.9))
           .clamp(0.0, 0.85)
           .toDouble();
+      // Enforce minimum tip of 1 so a successful tip roll never awards 0 coins.
+      // tipMultiplier comes from chef gear (1.0 until Phase 2 gear exists).
       final tip = _random.nextDouble() <= effectiveTipChance
-          ? (updatedOrder.orderValue * (0.08 + speedRatio * 0.12)).roundToDouble()
+          ? math.max(1.0, (updatedOrder.orderValue * (0.08 + speedRatio * 0.12) * tipMultiplier).roundToDouble())
           : 0.0;
       final payout = updatedOrder.orderValue + tip;
       coins += payout;
@@ -2164,7 +2320,8 @@ class GameController extends StateNotifier<GameState> {
         _decorationManager.incomeMultiplier(state.purchasedDecorationIds) *
         _managerUpgradeManager.globalIncomeMultiplier(state) *
         currentPrestigeMultiplier *
-        boostIncome;
+        boostIncome *
+        _currentShopTierConfig.globalEarningsMultiplier;
   }
 
   double _stationSpeedMultiplier(String stationId, int level) {
@@ -2176,6 +2333,13 @@ class GameController extends StateNotifier<GameState> {
   double _calculateOfflineAward(GameState gameState, DateTime nowUtc) {
     var totalCps = 0.0;
     final expansion = _expansionManager.byId(gameState.expansionStageId);
+    ShopTierConfig offlineShopTierConfig = shopTierConfigs.first;
+    for (final c in shopTierConfigs) {
+      if (c.tier == gameState.shopTier.currentTier) {
+        offlineShopTierConfig = c;
+        break;
+      }
+    }
     final decorationIncome =
         _decorationManager.incomeMultiplier(gameState.purchasedDecorationIds);
     final managerIncome = _managerUpgradeManager.globalIncomeMultiplier(gameState);
@@ -2221,7 +2385,8 @@ class GameController extends StateNotifier<GameState> {
           prestigeIncome *
           incomeBoost *
           stationSpeed *
-          workerRateBoost;
+          workerRateBoost *
+          offlineShopTierConfig.globalEarningsMultiplier;
     }
 
     return _offlineIncomeSystem.calculate(
@@ -2397,6 +2562,9 @@ class GameController extends StateNotifier<GameState> {
       nextOrderSerial: state.nextOrderSerial,
       notificationPreferences: state.notificationPreferences,
       serviceIntegration: state.serviceIntegration,
+      chefs: state.chefs,
+      ownedGear: state.ownedGear,
+      shopTier: state.shopTier,
     );
     await _saveService.save(saveData);
     unawaited(_economySyncService.queueSnapshot(state));
@@ -2532,10 +2700,17 @@ class GameController extends StateNotifier<GameState> {
           .toList(growable: false);
     }
     final tableIds = value.cafeTables.map((table) => table.tableId).toSet();
+    // Track which customers still have an active order so we can detect orphaned tables
+    // (a table whose customerId has no matching active order will block seating forever).
+    final activeCustomerIds = cafeOrders.map((order) => order.customerId).toSet();
     final cafeTables = <CafeTableState>[
       for (final fallback in _defaultCafeTables())
         if (!tableIds.contains(fallback.tableId)) fallback,
-      ...value.cafeTables,
+      for (final table in value.cafeTables)
+        // Clear customerId when no active order exists for that customer (orphan recovery).
+        (table.customerId != null && !activeCustomerIds.contains(table.customerId))
+            ? table.copyWith(clearCustomerId: true)
+            : table,
     ];
     final validManagerIds = _managerUpgradeManager.all.map((m) => m.id).toSet();
     final validWorkerIds = _workerManager.allWorkers.map((w) => w.id).toSet();
@@ -2565,7 +2740,13 @@ class GameController extends StateNotifier<GameState> {
     final validEventIds = _limitedEventManager.all.map((e) => e.id).toSet();
     final dailyTasks = _taskManager.ensureDefaults(dailyTaskConfigs, value.dailyTasks);
     final weeklyTasks = _taskManager.ensureDefaults(weeklyTaskConfigs, value.weeklyTasks);
+    // Ensure at least the starter chef exists (covers old saves migrating forward).
+    final chefs = value.chefs.isEmpty
+        ? const <String, ChefState>{'chef_1': ChefState.starter}
+        : value.chefs;
+
     return value.copyWith(
+      chefs: chefs,
       stations: stations,
       expansionStageId: normalizedExpansion.id,
       waitingCustomerTypes: queue,
@@ -2637,11 +2818,14 @@ class GameController extends StateNotifier<GameState> {
   GameState _buildPrestigeRunResetState({
     required DateTime nowUtc,
     required int awardedPrestigePoints,
+    required int cityLevel,
+    required List<GearItem> ownedGear,
   }) {
     const resetPlayerLevel = PrestigeBalanceConfig.resetPlayerLevelOnPrestige;
     final resetStations = _ensureAllStations(const <String, StationState>{});
     return GameState(
-      coins: 0,
+      // Coins are preserved across city changes — not reset on prestige.
+      coins: state.coins,
       stations: resetStations,
       lastSavedAtUtc: nowUtc,
       resources: const GameResources(coffeeCups: 0, servedCustomers: 0),
@@ -2689,6 +2873,10 @@ class GameController extends StateNotifier<GameState> {
       notificationPreferences: state.notificationPreferences,
       settings: state.settings,
       tutorial: state.tutorial,
+      chefs: state.chefs,
+      ownedGear: ownedGear,
+      shopTier: ShopTierState.initial,
+      cityLevel: cityLevel,
       saveVersion: GameSaveData.currentSaveVersion,
       lastSavedAtUtcMillis: nowUtc.millisecondsSinceEpoch,
     );
@@ -2748,6 +2936,7 @@ class GameController extends StateNotifier<GameState> {
       lastSavedAtUtcMillis: nowUtc.millisecondsSinceEpoch,
       uiEventCounter: 0,
       lastUiEvent: '',
+      chefs: const <String, ChefState>{'chef_1': ChefState.starter},
     );
   }
 

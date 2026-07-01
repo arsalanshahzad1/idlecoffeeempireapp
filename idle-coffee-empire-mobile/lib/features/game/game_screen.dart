@@ -8,6 +8,7 @@ import 'package:flame/game.dart';
 
 import 'package:flame_svg/flame_svg.dart';
 
+import '../../data/shop_tier_configs.dart';
 import '../../data/station_configs.dart';
 import '../../game/idle_coffee_game.dart';
 import '../../managers/economy_manager.dart';
@@ -21,6 +22,10 @@ import 'widgets/settings_dialog.dart';
 import 'widgets/queue_panel.dart';
 import 'widgets/station_detail_panel.dart';
 import '../boosts/boost_panel.dart';
+import '../chef/chef_gear_screen.dart';
+import '../prestige/prestige_panel.dart';
+import '../shop/shop_tier_screen.dart';
+import '../store/store_panel.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
   const GameScreen({super.key});
@@ -297,7 +302,21 @@ class _GameScreenState extends ConsumerState<GameScreen> with SingleTickerProvid
   Widget _buildSystemMenu(BuildContext context, GameController controller) {
     return MenuAnchor(
       menuChildren: [
-        MenuItemButton(onPressed: () => _openDialog(context, const SettingsDialog()), child: const Text('Settings')),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.storefront_rounded, size: 18),
+          onPressed: () => _showStationsSheet(context, controller),
+          child: const Text('Stations'),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.receipt_long_rounded, size: 18),
+          onPressed: () => _showQueuePanel(context),
+          child: const Text('Orders'),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.settings_rounded, size: 18),
+          onPressed: () => _openDialog(context, const SettingsDialog()),
+          child: const Text('Settings'),
+        ),
       ],
       builder: (context, menuController, child) {
         return IconButton.filledTonal(
@@ -343,9 +362,11 @@ class _GameScreenState extends ConsumerState<GameScreen> with SingleTickerProvid
       ),
       child: Row(
         children: [
-          _navButton(context, Icons.storefront_rounded, 'Stations', () => _showStationsSheet(context, controller)),
-          _navButton(context, Icons.receipt_long_rounded, 'Orders', () => _showQueuePanel(context)),
-          _navButton(context, Icons.settings_rounded, 'Settings', () => _openDialog(context, const SettingsDialog())),
+          _navButtonPrestige(context, state),
+          _navButton(context, Icons.savings_rounded, 'Vault', () => _openDialog(context, const StorePanel())),
+          _navButton(context, Icons.bolt_rounded, 'Boosts', () => _openDialog(context, const BoostPanel())),
+          _navButton(context, Icons.person_rounded, 'Chef', () => _openDialog(context, const ChefGearScreen())),
+          _navButton(context, Icons.arrow_upward_rounded, 'Shop', () => _openDialog(context, const ShopTierScreen())),
         ],
       ),
     );
@@ -379,6 +400,63 @@ class _GameScreenState extends ConsumerState<GameScreen> with SingleTickerProvid
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
                   color: VisualConfig.espressoBrown,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _navButtonPrestige(BuildContext context, GameState state) {
+    const int maxTier = 6;
+    final bool unlocked = state.shopTier.currentTier >= maxTier;
+    final Color iconColor = unlocked ? VisualConfig.espressoBrown : Colors.grey.shade400;
+    final Color bgColor = unlocked
+        ? VisualConfig.espressoBrown.withValues(alpha: 0.10)
+        : Colors.grey.withValues(alpha: 0.08);
+
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          if (unlocked) {
+            HapticFeedback.selectionClick();
+            _openDialog(context, const PrestigePanel());
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Reach Tier 6 to unlock prestige'),
+                duration: Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(Icons.flight_rounded, size: 26, color: iconColor),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Prestige',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: iconColor,
                 ),
               ),
             ],
@@ -432,7 +510,15 @@ class _GameScreenState extends ConsumerState<GameScreen> with SingleTickerProvid
                     ),
                   ),
                   Flexible(
-                    child: ListView.builder(
+                    child: Builder(
+                      builder: (context) {
+                        final currentTierConfig = shopTierConfigs.firstWhere(
+                          (c) => c.tier == state.shopTier.currentTier,
+                          orElse: () => shopTierConfigs.first,
+                        );
+                        final unlockedCount = state.stations.values.where((s) => s.isUnlocked).length;
+                        final atCapacity = unlockedCount >= currentTierConfig.maxActiveStations;
+                        return ListView.builder(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                       itemCount: stationConfigs.length,
                       itemBuilder: (context, index) {
@@ -444,7 +530,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with SingleTickerProvid
                         final upgradeCost = _economy.upgradeCost(config, station.level);
                         final queueCount = state.stationQueues[config.id]?.length ?? 0;
                         final canUpgrade = station.isUnlocked && station.level < 100 && state.coins >= upgradeCost;
-                        final canUnlock = !station.isUnlocked && state.coins >= config.unlockCost;
+                        final canUnlock = !station.isUnlocked && !atCapacity && state.coins >= config.unlockCost;
                         return Card(
                           child: ListTile(
                             dense: true,
@@ -472,6 +558,8 @@ class _GameScreenState extends ConsumerState<GameScreen> with SingleTickerProvid
                             },
                           ),
                         );
+                      },
+                    );
                       },
                     ),
                   ),
